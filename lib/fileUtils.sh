@@ -23,6 +23,10 @@ function move_file()
     local -r final_path_file=$2
     local -r operator_file=$3
 
+    if [ -z "$initial_path_file" -o -z "$final_path_file" ]; then
+        return 2
+    fi
+
     case "$operator_file" in 
       "set_")
         if [ ! -f "$final_path_file" ]; then
@@ -35,7 +39,7 @@ function move_file()
         fi
         ;;
       *)
-        return 2
+        return 3
         ;;
     esac
 }

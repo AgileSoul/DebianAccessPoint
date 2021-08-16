@@ -5,12 +5,19 @@ if [ $EUID -ne 0 ]; then
     exit 1
 fi
 
-# path to the directory containing the executable script
+clear
+
+# Path to the directory containing the executable script
 readonly AccessPointPath=$(dirname $(readlink -f $0))
 readonly AccessPointLibPath="$AccessPointPath/lib"
 
 readonly InterfaceAccessPoint="wlan1"
 readonly InterfaceForward="wlan0" # this interface should have internet connection
+
+# Original files to save later
+readonly InterfacesOriginalFile="/etc/network/interfaces"
+readonly DhcpDefaultConfigFile="/etc/default/isc-dhcp-server"
+readonly DhcpServerConfigFile="/etc/dhcp/dhcpd.conf"
 
 # ========== < Lib Utils > ============
 source "$AccessPointLibPath/resolutionUtils.sh"
@@ -48,15 +55,15 @@ get_network_info()
 
 set_interfaces_config()
 {
-    readonly InterfacesOriginalFile="/etc/network/interfaces"
     readonly InterfacesOriginalCopyFile="$AccessPointPath/interfacesOriginalCopy"
 
     move_file "$InterfacesOriginalFile" "$InterfacesOriginalCopyFile" set_ 
 
     local -r configuration=(
-      "auto lo" "iface lo inet loopback" "" "auto $InterfaceAccessPoint" \
-      "iface $InterfaceAccessPoint inet static" "   address $AccessPointIp" \
-      "   netmask $AccessPointNetmask" "   broadcast $AccessPointBroadcast" )
+      "auto lo" "iface lo inet loopback" "" "auto $InterfaceAccessPoint" 
+      "iface $InterfaceAccessPoint inet static" "   address $AccessPointIp" 
+      "   netmask $AccessPointNetmask" "   broadcast $AccessPointBroadcast" 
+    )
     
     generate_config_file "$InterfacesOriginalFile" configuration[@]
 }
@@ -64,9 +71,9 @@ set_interfaces_config()
 unset_interfaces_config()
 {
     if move_file "$InterfacesOriginalCopyFile" "$InterfacesOriginalFile" unset_; then
-        echo -e "$ExitSuccessLine Restoring $CyanCursiva$InterfacesOriginalFile$TerminarColor..."
+        echo -e "$RESTORESuccessLine Restoring $CyanCursiva$InterfacesOriginalFile$TerminarColor..."
     else
-        echo -e "$ExitFailedLine Failed to restoring $CyanCursiva$InterfacesOriginalFile$TerminarColor..."
+        echo -e "$RESTOREFailedLine Failed to restoring $CyanCursiva$InterfacesOriginalFile$TerminarColor..."
     fi
 }
 
@@ -81,10 +88,10 @@ set_hostapd_config()
     # I delete "wpa_key_mgmt=WPA­-PSK" becouse i have an error starting hostapd service.
     # Attempt uncomment it if you don't have errors with "wpa_key_mgmt=WPA­-PSK"
     local -r configuration=(
-        "interface=$InterfaceAccessPoint" "driver=nl80211" \
-        "ssid=$SSID" "channel=$channel" "hw_mode=g" "auth_algs=1" \
-        "wpa=2" "wpa_passphrase=$password" #"wpa_key_mgmt=WPA­-PSK" 
-        "wpa_pairwise=TKIP CCMP" "rsn_pairwise=CCMP" "ap_max_inactivity=21600"
+      "interface=$InterfaceAccessPoint" "driver=nl80211" 
+      "ssid=$SSID" "channel=$channel" "hw_mode=g" "auth_algs=1" 
+      "wpa=2" "wpa_passphrase=$password" #"wpa_key_mgmt=WPA­-PSK" 
+      "wpa_pairwise=TKIP CCMP" "rsn_pairwise=CCMP" "ap_max_inactivity=21600"
     )
     
     generate_config_file "$HostapdConfigFile" configuration[@]
@@ -107,7 +114,6 @@ unset_hostapd_config()
 
 set_dhcp_config()
 {
-    readonly DhcpDefaultConfigFile="/etc/default/isc-dhcp-server"
     readonly DhcpDefaultConfigCopyFile="$AccessPointPath/isc-dhcp-serverOriginal"
     if [ ! -f "$DhcpDefaultConfigFile" ]; then
         echo -e "$AccessPointDefaultError $DhcpDefaultConfigFile is missing"
@@ -128,25 +134,72 @@ set_dhcp_config()
 
     sed -r "s/^INTERFACESv4=\".*\"$/$new_dhcp_interfacesv4/g" $DhcpDefaultConfigCopyFile \
     > $DhcpDefaultConfigFile
+
+    readonly DhcpServerConfigCopyFile="$AccessPointPath/dhcpdOriginal.conf"
+
+    move_file "$DhcpServerConfigFile" "$DhcpServerConfigCopyFile" set_
+
+    local -r dhcp_server_configuration=(
+      "default­lease­time 600;"
+      "max­lease­time 7200;"
+      ""
+      "subnet $AccessPointSubnet netmask $AccessPointNetmask"
+      "{"
+      "    range $AccessPointDhcpRange;"
+      "    option routers $ForwardIp;"
+      "    option subnet-mask $AccessPointNetmask;"
+      "    option domain-name-servers $AccessPointDnsServers;"
+      "}"
+    )
+
+    generate_config_file "$DhcpServerConfigFile" dhcp_server_configuration[@]
 }
 
 unset_dhcp_config()
 {
     if move_file "$DhcpDefaultConfigCopyFile" "$DhcpDefaultConfigFile" unset_; then
-        echo -e "$ExitSuccessLine Restoring $CyanCursiva$DhcpDefaultConfigFile$TerminarColor..."
+        echo -e "$RESTORESuccessLine Restoring $CyanCursiva$DhcpDefaultConfigFile$TerminarColor..."
     else
-        echo -e "$ExitFailedLine Failed to restoring $CyanCursiva$DhcpDefaultConfigFile$TerminarColor..."
+        echo -e "$RESTOREFailedLine Failed to restoring $CyanCursiva$DhcpDefaultConfigFile$TerminarColor..."
+    fi
+
+    if move_file "$DhcpServerConfigCopyFile" "$DhcpServerConfigFile" unset_; then
+        echo -e "$RESTORESuccessLine Restoring $CyanCursiva$DhcpServerConfigFile$TerminarColor..."
+    else
+        echo -e "$RESTOREFailedLine Failed to restoring $CyanCursiva$DhcpServerConfigFile$TerminarColor..."
     fi
 }
 
 restart_services()
 {
-    echo -e "$AccessPointVLine Resarting the services..."
-    if ! ip addr flush "$InterfaceAccessPoint"; then return 1; fi
+    local -r SERVICESLine="$AmarilloOscuro[$PurpuraOscuro*$AmarilloOscuro]$TerminarColor"
+    local -r SERVICESSuccessLine="$Amarillo[$Purpura-$Amarillo]$TerminarColor"
+    local -r SERVICESFailedLine="$Amarillo[$Rojo-$Amarillo]$TerminarColor"
 
-    if ! systemctl restart networking; then return 2; fi
+    echo -e "$SERVICESLine Restarting the services!"
 
-    if ! systemctl restart NetworkManager; then return 3; fi
+    if ip addr flush dev "$InterfaceAccessPoint"; then
+        echo -e "$SERVICESSuccessLine Ready to reset $Purpura$InterfaceAccessPoint$TerminarColor Ip" 
+    else
+        echo -e "$SERVICESFailedLine Cannot delete current $Purpura$InterfaceAccessPoint$TerminarColor Ip. Error (${Purpura}2$TerminarColor)"
+        return 1
+    fi
+
+    if systemctl restart networking; then 
+        echo -e "$SERVICESSuccessLine Networking service ${Purpura}successfully$TerminarColor resumed"
+    else
+        echo -e "$SERVICESFailedLine Cannot restart networking service. Error (${Purpura}2$TerminarColor)"
+        return 2
+    fi
+
+    if systemctl restart NetworkManager; then
+        echo -e "$SERVICESSuccessLine NetworkManager service ${Purpura}successfully$TerminarColor resumed"
+    else
+        echo -e "$SERVICESFailedLine Cannot restart NetworkManager service. Error (${Purpura}3$TerminarColor)"
+        return 3
+    fi
+
+    echo
 }
 
 start_access_point()
@@ -159,8 +212,6 @@ start_access_point()
     xterm -title "Access point: $SSID" $TOPLEFT -fg "#ff5400" -bg "#03071e" -e \
       "systemctl start hostapd && systemctl status hostapd" & 
     readonly AccessPointPID=$!
-
-    sleep 20
 }
 
 stop_access_point()
@@ -172,23 +223,77 @@ stop_access_point()
     kill $AccessPointPID
 }
 
+start_dhcp_server()
+{
+    if ! systemctl is-enabled isc-dhcp-server &> /dev/null && \
+      ! systemctl status isc-dhcp-server &> /dev/null; then
+        if ! systemctl enable isc-dhcp-server &> /dev/null; then return 1; fi
+    fi
+
+    xterm -title "Dhcp service" $TOPRIGHT -fg "#ff0000" -bg "#03071e" -e \
+      "systemctl start isc-dhcp-server && systemctl status isc-dhcp-server" &
+    readonly DhcpServerPID=$!
+}
+
+stop_dhcp_server()
+{
+    if [ ! "$DhcpServerPID" ]; then return 1; fi
+
+    systemctl stop isc-dhcp-server &> /dev/null
+    systemctl disable isc-dhcp-server &> /dev/null
+    kill $DhcpServerPID
+}
+
+restore_original_files()
+{
+    local -r RESTORELine="$GrisOscuro[$CyanOscuro*$GrisOscuro]$TerminarColor"
+    local -r RESTORESuccessLine="$Gris[$Cyan-$Gris]$TerminarColor"
+    local -r RESTOREFailedLine="$Gris[$Rojo-$Gris]$TerminarColor"
+
+    echo -e "$RESTORELine Restoring original files!"
+    
+    unset_interfaces_config
+    unset_hostapd_config
+    unset_dhcp_config
+    
+    echo
+}
+
 stop_servers()
 {
+    local servers_counter=0
+    local -r SERVERSLine="$AzulOscuro[$AmarilloOscuro*$AzulOscuro]$TerminarColor"
+    local -r SERVERSSuccessLine="$Azul[$Amarillo-$Azul]$TerminarColor"
+    local -r SERVERSFailedLine="$Azul[$Rojo-$Azul]$TerminarColor"
+
+    echo -e "$SERVERSLine Stopping all servers!"
+
     if stop_access_point; then
-        echo -e "$ExitSuccessLine Stop access point \"$SSID\" ${VerdeOscuro}Successfully$TerminarColor"
+        echo -e "$SERVERSSuccessLine Stop access point \"$SSID\" ${AmarilloOscuro}Successfully$TerminarColor"
+        let servers_counter++
     fi
+
+    if stop_dhcp_server; then
+        echo -e "$SERVERSSuccessLine Stop dhcp server ${AmarilloOscuro}Successfully$TerminarColor"
+        let servers_counter++
+    fi
+
+    if [ $servers_counter -eq 0 ]; then
+        echo -e "$SERVERSFailedLine There aren't servers to stop"
+    fi
+
+    echo
 }
 
 exit_script()
 {
-    local -r ExitSuccessLine="$Rojo[$Verde-$Rojo]${TerminarColor}"
-    local -r ExitFailedLine="$Rojo[-]${TerminarColor}"
+    restore_original_files
 
-    unset_interfaces_config
-    unset_hostapd_config
-    unset_dhcp_config
     stop_servers
-    echo -e "$ExitSuccessLine Exiting..."; sleep 0.2
+
+    echo -e "$AccessPointVLine Exiting..."; sleep 0.2
+
+    exit $1
 }
 
 prep_access_point()
@@ -212,6 +317,13 @@ run_access_point()
         echo - "Failed to start access point [Error $Rojo$?$TerminarColor], Exiting..."
         return 2
     fi
+
+    if ! start_dhcp_server; then
+        echo -e "Failed to start dhcp server [Error $Rojo$?$TerminarColor], Exiting..."
+        return 3
+    fi
+
+    sleep 20
 }
 
 access_point_main()
@@ -224,7 +336,7 @@ access_point_main()
     if ! prep_access_point; then return 1; fi
     if ! run_access_point; then return 2; fi
 
-    exit_script
+    exit_script 0
 }
 
-if ! access_point_main; then exit_script; fi
+if ! access_point_main; then exit_script $?; fi

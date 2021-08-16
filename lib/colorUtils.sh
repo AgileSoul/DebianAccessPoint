@@ -15,8 +15,8 @@ RojoOscuro="\e[1;31m"
 VerdeOscuro="\e[1;32m"
 AmarilloOscuro="\e[1;33m"
 AzulOscuro="\e[1;34m"
-
-
+PurpuraOscuro="\e[1;35m"
+CyanOscuro="\e[1;36m"
 GrisOscuro="\e[1;37m"
 
 #Cursiva
