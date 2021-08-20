@@ -22,6 +22,8 @@ function move_file()
     local -r initial_path_file=$1
     local -r final_path_file=$2
     local -r operator_file=$3
+    
+    local -r restore_success_line="$Gris[$Cyan-$Gris]$TerminarColor"
 
     if [ -z "$initial_path_file" -o -z "$final_path_file" ]; then
         return 2
@@ -29,13 +31,15 @@ function move_file()
 
     case "$operator_file" in 
       "set_")
-        if [ ! -f "$final_path_file" ]; then
+        if [ -f "$initial_path_file" -a ! -f "$final_path_file" ]; then
             mv "$initial_path_file" "$final_path_file"
         fi
         ;;
       "unset_")
         if [ -f "$initial_path_file" ]; then
+            rm "$final_path_file"
             mv "$initial_path_file" "$final_path_file"
+            echo -e "$restore_success_line Restoring $CyanCursiva$final_path_file$TerminarColor..."
         fi
         ;;
       *)
