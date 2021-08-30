@@ -16,11 +16,12 @@ mkdir -p $AccessPointWorkSpacePath/OriginalFiles
 
 # Original files to save later
 readonly InterfacesConfigFile="/etc/network/interfaces"
+readonly NetworkManagerConfigFile="/etc/NetworkManager/NetworkManager.conf"
 readonly HostapdConfigFile="/etc/hostapd/hostapd.conf"
 readonly HostapdDefaultConfigFile="/etc/default/hostapd"
 readonly DhcpDefaultConfigFile="/etc/default/isc-dhcp-server"
 readonly DhcpServerConfigFile="/etc/dhcp/dhcpd.conf"
-readonly NetworkManagerConfigFile="/etc/NetworkManager/NetworkManager.conf"
+readonly IpForwardEnableConfigFile="/proc/sys/net/ipv4/ip_forward"
 
 # ========== < Lib Utils > ============
 source "$AccessPointLibPath/resolutionUtils.sh"
@@ -29,8 +30,8 @@ source "$AccessPointLibPath/fileUtils.sh"
 source "$AccessPointLibPath/outputUtils.sh"
 
 # Access point interface and forwarding interface
-readonly InterfaceAccessPoint="wlp3s0"
-readonly InterfaceForward="wlxec086b1038e3"
+readonly InterfaceAccessPoint="wlan1"
+readonly InterfaceForward="wlan0"
 
 # ========== < Configure Variables > ============
 AccessPointState="Not Ready"
@@ -165,7 +166,7 @@ set_hostapd_config()
 
     move_file "$HostapdConfigFile" "$HostapdConfigCopyFile" set_
 
-    readonly SSID="Nel prro"
+    readonly SSID="Wifi for mi bro"
     local -r password="9876543210"
     local -r channel=5
 
@@ -200,7 +201,7 @@ set_dhcp_config()
 {
     readonly DhcpDefaultConfigCopyFile="$AccessPointWorkSpacePath/OriginalFiles/isc-dhcp-serverOriginal"
     if [ ! -f "$DhcpDefaultConfigFile" ]; then
-        echo -e "$AccessPointDefaultError $DhcpDefaultConfigFile is missing"
+        echo -e "$AccessPointDefaultError $DhcpDefaultConfigFile is missing."
         return 1  
     fi
 
@@ -252,6 +253,32 @@ unset_dhcp_config()
     move_file "$DhcpDefaultConfigCopyFile" "$DhcpDefaultConfigFile" unset_
 
     move_file "$DhcpServerConfigCopyFile" "$DhcpServerConfigFile" unset_
+}
+
+set_routing_config()
+{
+    if [ ! -f "$IpForwardEnableConfigFile" ]; then
+        echo -e "$AccessPointDefaultError $IpForwardEnableConfigFile is missing."
+        return 1
+    fi
+
+    # Save original config and assure that we have enabled ip forwarding:
+    # 0; disabled.
+    # 1: enabled.
+    readonly IpForwardEnableOriginalConfig="$(cat $IpForwardEnableConfigFile)"
+    echo "1" > $IpForwardEnableConfigFile
+
+    # Configure firewall ip rules
+    iptables -t nat -A POSTROUTING -o "$InterfaceForward" -s "$AccessPointSubnet/24" -j MASQUERADE
+    iptables -A FORWARD -i "$InterfaceAccessPoint" -j ACCEPT
+}
+
+unset_routing_config()
+{
+    echo "$IpForwardEnableOriginalConfig" > $IpForwardEnableConfigFile
+
+    # Delete firewall ip rule
+    iptables -D FORWARD -i "$InterfaceAccessPoint" -j ACCEPT 2> /dev/null
 }
 
 restart_services()
@@ -334,7 +361,7 @@ stop_dhcp_server()
     kill $XtermDhcpLogPID 2> /dev/null
 }
 
-restore_original_files()
+restore_original_config()
 {
     if [ "$AccessPointState" != "Ready" ]; then return 1; fi
 
@@ -343,9 +370,10 @@ restore_original_files()
     echo -e "$RESTORELine Restoring original files!"
     
     unset_interfaces_config
+    unset_NetworkManager_config
     unset_hostapd_config
     unset_dhcp_config
-    unset_NetworkManager_config
+    unset_routing_config
 
     echo
 }
@@ -392,6 +420,11 @@ set_access_point_config()
     if ! set_dhcp_config; then 
         unset_dhcp_config
         return 3
+    fi
+
+    if ! set_routing_config; then
+        unset_routing_config
+        return 4
     fi
 }
 
@@ -469,7 +502,7 @@ access_point_shutdown()
 {
     stop_servers
 
-    restore_original_files
+    restore_original_config
 
     restart_services
 
