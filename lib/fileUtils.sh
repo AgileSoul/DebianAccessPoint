@@ -23,7 +23,7 @@ function move_file()
     local -r final_path_file=$2
     local -r operator_file=$3
     
-    local -r restore_success_line="$Gris[$Cyan-$Gris]$TerminarColor"
+    local -r restore_success_line="$GRAY[$CYAN-$GRAY]$NORMAL"
 
     if [ -z "$initial_path_file" -o -z "$final_path_file" ]; then
         return 2
@@ -39,7 +39,7 @@ function move_file()
         if [ -f "$initial_path_file" ]; then
             rm "$final_path_file"
             mv "$initial_path_file" "$final_path_file"
-            echo -e "$restore_success_line Restoring $CyanCursiva$final_path_file$TerminarColor..."
+            echo -e "$restore_success_line Restoring $ITALICCYAN$final_path_file$NORMAL..."
         fi
         ;;
       *)

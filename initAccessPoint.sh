@@ -26,6 +26,7 @@ readonly NetworkManagerConfigFile="/etc/NetworkManager/NetworkManager.conf"
 source "$AccessPointLibPath/resolutionUtils.sh"
 source "$AccessPointLibPath/colorUtils.sh"
 source "$AccessPointLibPath/fileUtils.sh"
+source "$AccessPointLibPath/outputUtils.sh"
 
 # Access point interface and forwarding interface
 readonly InterfaceAccessPoint="wlp3s0"
@@ -34,13 +35,24 @@ readonly InterfaceForward="wlxec086b1038e3"
 # ========== < Configure Variables > ============
 AccessPointState="Not Ready"
 
+access_point_header()
+{
+    local -r HEADERCOLOR="$(tput bold)$(tput setaf 27)"
+
+    printf "$HEADERCOLOR"
+    figlet -tc "Debian Access Point"
+    printf "$NORMAL"
+    sleep 1
+    echo
+}
+
 check_interfaces_integrity()
 {
     local interface
     for interface in "$InterfaceAccessPoint" "$InterfaceForward"
     do
         if ! ifconfig "$interface" &> /dev/null; then
-            echo -e "$AccessPointDefaultError the interface [$Verde$interface$TerminarColor] isn't configured, please configure it"
+            echo -e "$AccessPointDefaultError the interface [$GREEN$interface$NORMAL] isn't configured, please configure it"
             return 1
         fi
     done
@@ -49,7 +61,7 @@ check_interfaces_integrity()
 
     readonly ForwardIp=$(ifconfig "$InterfaceForward" | grep -E "$IpRegex" | awk '{print $2}')
     if [ ! $ForwardIp ]; then
-        echo -e "$AccessPointDefaultError the forward interface [$Verde$InterfaceForward$TerminarColor] hasn't Ip, please connect it to a wifi network"
+        echo -e "$AccessPointDefaultError the forward interface [$GREEN$InterfaceForward$NORMAL] hasn't Ip, please connect it to a wifi network"
         return 2
     fi
 }
@@ -246,32 +258,34 @@ restart_services()
 {
     if [ "$AccessPointState" != "Ready" ]; then return 1; fi
 
-    local -r SERVICESLine="$AmarilloOscuro[$PurpuraOscuro*$AmarilloOscuro]$TerminarColor"
-    local -r SERVICESSuccessLine="$Amarillo[$Purpura-$Amarillo]$TerminarColor"
-    local -r SERVICESFailedLine="$Amarillo[$Rojo-$Amarillo]$TerminarColor"
+    local -r SERVICESLine="$BOLDYELLOW[$BOLDPURPLE*$BOLDYELLOW]$NORMAL"
+    local -r SERVICESSuccessLine="$YELLOW[$PURPLE-$YELLOW]$NORMAL"
+    local -r SERVICESFailedLine="$YELLOW[$RED-$YELLOW]$NORMAL"
 
     echo -e "$SERVICESLine Restarting the services!"
 
     if systemctl restart NetworkManager; then
-        echo -e "$SERVICESSuccessLine NetworkManager service ${Purpura}successfully$TerminarColor resumed"
+        echo -e "$SERVICESSuccessLine NetworkManager service ${PURPLE}successfully$NORMAL resumed"
     else
-        echo -e "$SERVICESFailedLine Cannot restart NetworkManager service. Error (${Purpura}3$TerminarColor)"
+        echo -e "$SERVICESFailedLine Cannot restart NetworkManager service. Error (${PURPLE}3$NORMAL)"
         return 3
     fi
 
     if ip addr flush dev "$InterfaceAccessPoint"; then
-        echo -e "$SERVICESSuccessLine Ready to reset $Purpura$InterfaceAccessPoint$TerminarColor Ip" 
+        echo -e "$SERVICESSuccessLine Ready to reset $PURPLE$InterfaceAccessPoint$NORMAL Ip" 
     else
-        echo -e "$SERVICESFailedLine Cannot delete current $Purpura$InterfaceAccessPoint$TerminarColor Ip. Error (${Purpura}2$TerminarColor)"
+        echo -e "$SERVICESFailedLine Cannot delete current $PURPLE$InterfaceAccessPoint$NORMAL Ip. Error (${PURPLE}2$NORMAL)"
         return 1
     fi
 
     if systemctl restart networking; then 
-        echo -e "$SERVICESSuccessLine Networking service ${Purpura}successfully$TerminarColor resumed"
+        echo -e "$SERVICESSuccessLine Networking service ${PURPLE}successfully$NORMAL resumed"
     else
-        echo -e "$SERVICESFailedLine Cannot restart networking service. Error (${Purpura}2$TerminarColor)"
+        echo -e "$SERVICESFailedLine Cannot restart networking service. Error (${PURPLE}2$NORMAL)"
         return 2
     fi
+
+    echo
 
     AccessPointState="Not Ready"
 }
@@ -324,7 +338,7 @@ restore_original_files()
 {
     if [ "$AccessPointState" != "Ready" ]; then return 1; fi
 
-    local -r RESTORELine="$GrisOscuro[$CyanOscuro*$GrisOscuro]$TerminarColor"
+    local -r RESTORELine="$BOLDGRAY[$BOLDCYAN*$BOLDGRAY]$NORMAL"
 
     echo -e "$RESTORELine Restoring original files!"
     
@@ -332,25 +346,30 @@ restore_original_files()
     unset_hostapd_config
     unset_dhcp_config
     unset_NetworkManager_config
+
+    echo
 }
 
 stop_servers()
 {
     if [ "$AccessPointState" != "Running" ]; then return 1; fi
     
-    local -r SERVERSLine="$AzulOscuro[$AmarilloOscuro*$AzulOscuro]$TerminarColor"
-    local -r SERVERSSuccessLine="$Azul[$Amarillo-$Azul]$TerminarColor"
-    local -r SERVERSFailedLine="$Azul[$Rojo-$Azul]$TerminarColor"
+    local -r SERVERSLine="$BOLDBLUE[$BOLDYELLOW*$BOLDBLUE]$NORMAL"
+    local -r SERVERSSuccessLine="$BLUE[$YELLOW-$BLUE]$NORMAL"
+    local -r SERVERSFailedLine="$BLUE[$RED-$BLUE]$NORMAL"
 
+    echo
     echo -e "$SERVERSLine Stopping all servers!" 
 
     if stop_hostapd_server; then
-        echo -e "$SERVERSSuccessLine Stop hostapd server ${AmarilloOscuro}Successfully$TerminarColor"
+        echo -e "$SERVERSSuccessLine Stop hostapd server ${BOLDYELLOW}Successfully$NORMAL"
     fi
 
     if stop_dhcp_server; then
-        echo -e "$SERVERSSuccessLine Stop dhcp server ${AmarilloOscuro}Successfully$TerminarColor"
+        echo -e "$SERVERSSuccessLine Stop dhcp server ${BOLDYELLOW}Successfully$NORMAL"
     fi
+
+    echo
 
     AccessPointState="Ready"
 }
@@ -383,28 +402,38 @@ access_point_daemon()
         if [ "$AccessPointState" != "Running" ]; then return 1; fi
 
         local -r charSequence="-+|*/\\"
+        local -i colorNumberOfColumns
+        local currentSpinner
+        
         while true;
         do
         	for (( i=0; i<${#charSequence}; i++))
         	do
                 sleep 0.6
-                #printf "\b$RojoOscuro%s$VerdeOscuro%s$RojoOscuro%s$TerminarColor" "[ " "${charSequence:$i:1}" " ]"
-        	    #printf "\b$RojoOscuro[ $VerdeOscuro${charSequence:i:1} $RojoOscuro]"
-                echo -ne "\r\t\t$RojoOscuro[ $VerdeOscuro${charSequence:i:1} $RojoOscuro]$TerminarColor"
+                currentSpinner="$BOLDRED[ $BOLDGREEN${charSequence:i:1} $BOLDRED]$NORMAL"
+                # We must send parameter numbers of caracters of the colors for center
+                colorNumberOfColumns=$((${#BOLDRED} + ${#BOLDGREEN} + ${#BOLDRED} + ${#NORMAL}))
+                echo -ne "\r$(printCenteredText "$currentSpinner" $colorNumberOfColumns) "
             done 
         done
     }
 
-    trap 'exit_script 0' SIGINT SIGHUP
+    trap 'access_point_shutdown 0' SIGINT SIGHUP
+
+    local -r AccessPointRunningQuery="$AccessPointLine Access Point '$SSID' is ${BLINKGREEN}running$NORMAL $AccessPointLine"
+    local -ri AccessPointRunningQueryColumnsNumber=$((${#AccessPointLine}*2 -6 + ${#BLINKGREEN} + ${#NORMAL}))
+    echo -e "$(printCenteredText "$AccessPointRunningQuery" $AccessPointRunningQueryColumnsNumber)"
+
+    local -r AccessPointHowStopQuery="Press ${ITALICYELLOW}Ctrl + c$NORMAL to shutdown the access point"
+    local -ri AccessPointHowStopQueryColumnsNumber=$((${#ITALICYELLOW} + ${#NORMAL}))
+    echo -e "$(printCenteredText "$AccessPointHowStopQuery" $AccessPointHowStopQueryColumnsNumber)"
+
+    access_point_running_spinner &
+    local -r spinnerPID=$!
 
     start_hostapd_server
 
     start_dhcp_server
-
-    echo -e "\t$AccessPointLine Access Point '$SSID' is ${Verde}running$TerminarColor $AccessPointLine"
-    echo -e "\tPress [Ctrl + c] to shutdown the access point"
-    access_point_running_spinner &
-    local -r spinnerPID=$!
     
     # Assure all servers and config are working
     while :
@@ -412,8 +441,8 @@ access_point_daemon()
         local AccessPointIpProved="$(ifconfig "$InterfaceAccessPoint" | grep -E "$IpRegex" | awk '{print $2}')"
 
         if [ "$AccessPointIpProved" != "$AccessPointIp" ]; then
-            echo -e "$AccessPointDefaultError The ip address for interface ($Verde$InterfaceAccessPoint$TerminarColor) isn't checked"
-            echo -e "You can checked it:\nRunning command: 'ifconfig $Verde$InterfaceAccessPoint$TerminarColor'..."
+            echo -e "$AccessPointDefaultError The ip address for interface ($GREEN$InterfaceAccessPoint$NORMAL) isn't checked"
+            echo -e "You can checked it:\nRunning command: 'ifconfig $GREEN$InterfaceAccessPoint$NORMAL'..."
             ifconfig $InterfaceAccessPoint
             break
         fi
@@ -432,10 +461,11 @@ access_point_daemon()
 
     # Stop spinner
     kill $spinnerPID 2> /dev/null
+    echo
     stop_servers
 }
 
-exit_script()
+access_point_shutdown()
 {
     stop_servers
 
@@ -443,17 +473,18 @@ exit_script()
 
     restart_services
 
-    echo -e "\n$AccessPointLine Exiting with code ($RojoOscuro$1$TerminarColor)"
+    echo -e "$AccessPointLine Exiting with code ($BOLDRED$1$NORMAL)"
 
     exit $1
 }
 
-access_point_main()
+access_point_startup()
 {
-    readonly AccessPointLine="$RojoOscuro[$VerdeOscuro*$RojoOscuro]$TerminarColor"
-    readonly AccessPointDefaultError="${RojoOscuro}Error:$TerminarColor"
+    readonly AccessPointLine="$BOLDRED[$BOLDGREEN*$BOLDRED]$NORMAL"
+    readonly AccessPointDefaultError="${BOLDRED}Error:$NORMAL"
     
     set_resolution
+    access_point_header
 
     if set_access_point_config; then 
         AccessPointState="Ready"
@@ -479,7 +510,6 @@ access_point_main()
         sleep 5
     done
 
-    AccessPointState="Ready"
     return 3
 }
 
@@ -487,10 +517,10 @@ access_point_handle_exit()
 {
     wait $AccessPointDaemonPID
     echo -e "$AccessPointLine Thanks for using the Access Point script :)"
-    echo -e "$AccessPointLine Give me a star in https://github.com/AgileSoul/LinuxAccessPoint"
+    echo -e "$AccessPointLine Give me a star in https://github.com/AgileSoul/DebianAccessPoint"
     exit 0
 }
 
 trap access_point_handle_exit SIGINT
-access_point_main
-exit_script $? 
+access_point_startup
+access_point_shutdown $? 

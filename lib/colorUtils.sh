@@ -1,33 +1,42 @@
 #!/usr/bin/env bash
 
-#Definir colores
-Rojo="\e[0;31m"
-Verde="\e[0;32m"
-Amarillo="\e[0;33m"
-Azul="\e[0;34m"
-Purpura="\e[0;35m"
-Cyan="\e[0;36m"
-Gris="\e[0;37m"
-TerminarColor="\e[0m"
+# Normal colors
+BLACK="$(tput setaf 0)"
+RED="$(tput setaf 1)"
+GREEN="$(tput setaf 2)"
+YELLOW="$(tput setaf 3)"
+BLUE="$(tput setaf 4)"
+PURPLE="$(tput setaf 5)"
+CYAN="$(tput setaf 6)"
+GRAY="$(tput setaf 7)"
+NORMAL="$(tput sgr 0)"
 
-#Oscuros
-RojoOscuro="\e[1;31m"
-VerdeOscuro="\e[1;32m"
-AmarilloOscuro="\e[1;33m"
-AzulOscuro="\e[1;34m"
-PurpuraOscuro="\e[1;35m"
-CyanOscuro="\e[1;36m"
-GrisOscuro="\e[1;37m"
+# Bold font colors
+BOLDBLACK="$(tput bold)$(tput setaf 0)"
+BOLDRED="$(tput bold)$(tput setaf 1)"
+BOLDGREEN="$(tput bold)$(tput setaf 2)"
+BOLDYELLOW="$(tput bold)$(tput setaf 3)"
+BOLDBLUE="$(tput bold)$(tput setaf 4)"
+BOLDPURPLE="$(tput bold)$(tput setaf 5)"
+BOLDCYAN="$(tput bold)$(tput setaf 6)"
+BOLDGRAY="$(tput bold)$(tput setaf 7)"
 
-#Cursiva
+# Italics colors
+ITALICBLACK="$(tput sitm)$(tput setaf 0)"
+ITALICRED="$(tput sitm)$(tput setaf 1)"
+ITALICGREEN="$(tput sitm)$(tput setaf 2)"
+ITALICYELLOW="$(tput sitm)$(tput setaf 3)"
+ITALICBLUE="$(tput sitm)$(tput setaf 4)"
+ITALICPURPLE="$(tput sitm)$(tput setaf 5)"
+ITALICCYAN="$(tput sitm)$(tput setaf 6)"
+ITALICGRAY="$(tput sitm)$(tput setaf 7)"
 
-VerdeCursiva="\e[3;32m"
-CyanCursiva="\e[3:36m"
-
-#Parpadeo
-RojoParpadeo="\e[5;31m"
-
-AmarilloParpadeo="\e[5;33m"
-
-
-CyanParpadeo="\e[5;36m"
+# Blinking colors
+BLINKBLACK="$(tput blink)$(tput setaf 0)"
+BLINKRED="$(tput blink)$(tput setaf 1)"
+BLINKGREEN="$(tput blink)$(tput setaf 2)"
+BLINKYELLOW="$(tput blink)$(tput setaf 3)"
+BLINKBLUE="$(tput blink)$(tput setaf 4)"
+BLINKPURPLE="$(tput blink)$(tput setaf 5)"
+BLINKCYAN="$(tput blink)$(tput setaf 6)"
+BLINKGRAY="$(tput blink)$(tput setaf 7)"
